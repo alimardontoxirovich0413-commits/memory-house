@@ -1,0 +1,11 @@
+{
+  "name": "Memory House — Xotiralar uyi",
+  "short_name": "Memory House",
+  "description": "Rasmlaringizni virtual uy-muzeyga aylantiring.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#171a25",
+  "theme_color": "#171a25",
+  "orientation": "portrait",
+  "icons": []
+}
