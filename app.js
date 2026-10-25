@@ -2,7 +2,7 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.m
 
 const $ = id => document.getElementById(id);
 const DB_NAME='memory-house-db', STORE='photos';
-let museums=[], activeId=null, db=null, photoObjects=[], keys={}, yaw=0, pitch=0, dragging=false, lastX=0,lastY=0;
+let museums=[], activeId=null, db=null, photoObjects=[], keys={}, yaw=0, pitch=0, dragging=false, lastX=0,lastY=0, joyX=0, joyY=0, joyActive=false;
 const canvas=$('scene'), viewer=$('viewer');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
@@ -72,8 +72,14 @@ window.addEventListener('resize',resize);
 canvas.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;lastY=e.clientY;canvas.setPointerCapture(e.pointerId);});
 canvas.addEventListener('pointermove',e=>{if(!dragging)return;const dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;yaw-=dx*.004;pitch-=dy*.003;pitch=Math.max(-1.1,Math.min(1.1,pitch));camera.rotation.set(pitch,yaw,0);});
 canvas.addEventListener('pointerup',()=>dragging=false);canvas.addEventListener('pointercancel',()=>dragging=false);
-document.querySelectorAll('[data-move]').forEach(b=>{const down=e=>{e.preventDefault();keys[b.dataset.move]=true;},up=e=>{e.preventDefault();keys[b.dataset.move]=false;};b.addEventListener('pointerdown',down);b.addEventListener('pointerup',up);b.addEventListener('pointerleave',up);b.addEventListener('pointercancel',up);});
+const joy=$('joystick'), stick=$('stick');
+function updateJoy(e){const r=joy.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;let dx=e.clientX-cx,dy=e.clientY-cy;const max=r.width*.34,len=Math.hypot(dx,dy);if(len>max){dx=dx/len*max;dy=dy/len*max;}joyX=dx/max;joyY=dy/max;stick.style.left=(r.width/2-24+dx)+'px';stick.style.top=(r.height/2-24+dy)+'px';}
+joy.addEventListener('pointerdown',e=>{e.preventDefault();joyActive=true;joy.setPointerCapture(e.pointerId);updateJoy(e);});
+joy.addEventListener('pointermove',e=>{if(joyActive){e.preventDefault();updateJoy(e);}});
+function resetJoy(){joyActive=false;joyX=0;joyY=0;stick.style.left='36px';stick.style.top='36px';}
+joy.addEventListener('pointerup',resetJoy);joy.addEventListener('pointercancel',resetJoy);
+window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(['arrowup','w'].includes(k))keys.forward=true;if(['arrowdown','s'].includes(k))keys.back=true;if(['arrowleft','a'].includes(k))keys.left=true;if(['arrowright','d'].includes(k))keys.right=true;});window.addEventListener('keyup',e=>{const k=e.key.toLowerCase();if(['arrowup','w'].includes(k))keys.forward=false;if(['arrowdown','s'].includes(k))keys.back=false;if(['arrowleft','a'].includes(k))keys.left=false;if(['arrowright','d'].includes(k))keys.right=false;});
 $('upBtn').onclick=()=>{pitch=Math.max(-1.1,pitch-.12);camera.rotation.set(pitch,yaw,0);};$('downBtn').onclick=()=>{pitch=Math.min(1.1,pitch+.12);camera.rotation.set(pitch,yaw,0);};
-function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05),speed=2.5*dt;const forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));if(keys.forward)camera.position.addScaledVector(forward,speed);if(keys.back)camera.position.addScaledVector(forward,-speed);if(keys.left)camera.position.addScaledVector(right,-speed);if(keys.right)camera.position.addScaledVector(right,speed);camera.position.x=THREE.MathUtils.clamp(camera.position.x,-4.4,4.4);camera.position.z=THREE.MathUtils.clamp(camera.position.z,-4.4,4.4);camera.position.y=1.65;renderer.render(scene,camera);}
+function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05),speed=2.5*dt;const forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));const f=joyActive?-joyY:((keys.forward?1:0)-(keys.back?1:0));const r=joyActive?joyX:((keys.right?1:0)-(keys.left?1:0));const norm=Math.hypot(f,r)||1;camera.position.addScaledVector(forward,speed*f/norm);camera.position.addScaledVector(right,speed*r/norm);camera.position.x=THREE.MathUtils.clamp(camera.position.x,-4.4,4.4);camera.position.z=THREE.MathUtils.clamp(camera.position.z,-4.4,4.4);camera.position.y=1.65;renderer.render(scene,camera);}
 (async()=>{try{db=await openDB();}catch(e){$('status').textContent='Brauzer saqlash imkoniyatini ocholmadi. Boshqa brauzerda sinab ko‘ring.';}loadMuseums();resize();await buildRoom();renderPhotos();animate();})();
 if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(()=>{});
